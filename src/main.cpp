@@ -13,6 +13,31 @@
 #define N_THERMISTORS 1
 const int thermistorPins[N_THERMISTORS] = {A1};
 
+class Timer {
+  public:
+    unsigned long startMicros;
+  
+    unsigned long elapsedMicros()
+    {
+      return micros()-startMicros;
+    }
+
+    unsigned long elapsedMillis()
+    {
+      return (micros()-startMicros)/1000;
+    }
+
+    double elapsedSeconds()
+    {
+      return (micros()-startMicros)/1E06;
+    }
+
+    unsigned long start()
+    {
+      return startMicros = micros();
+    }
+};
+
 void setup() {
   pinMode(FLAME_SENSOR_PIN, INPUT_PULLUP);
   pinMode(LIGHTER_PIN, OUTPUT);
