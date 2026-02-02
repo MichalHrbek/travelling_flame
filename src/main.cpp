@@ -1,15 +1,17 @@
-#include <Arduino.h>
-#include <Wire.h>
+#include <Arduino.h> // Tohle je mozna potreba odstranit pri spousteni v Arduino IDE
 
-// zelena zem
-// zluta - input do arduina
-// oranzova - output z arduina
+// Dratky:
+//  zelena - zem
+//  zluta - input do arduina
+//  oranzova - output z arduina
 
 #define FLAME_SENSOR_PIN 7
+
 #define LIGHTER_PIN 6
-#define N_THERMISTORS 1
-const int thermistorPins[1] = {A1};
 #define LIGHTER_MILIS 10
+
+#define N_THERMISTORS 1
+const int thermistorPins[N_THERMISTORS] = {A1};
 
 void setup() {
   pinMode(FLAME_SENSOR_PIN, INPUT_PULLUP);
@@ -19,19 +21,26 @@ void setup() {
 
 double readCelsiusTemp(int pin)
 {
-  int thermistor_adc_val;
-  double output_voltage, thermistor_resistance, therm_res_ln, temperature; 
-  thermistor_adc_val = analogRead(pin);
-  output_voltage = ( (thermistor_adc_val * 5.0) / 1023.0 );
-  thermistor_resistance = ( ( 5 * ( 10.0 / output_voltage ) ) - 10 ); /* Resistance in kilo ohms */
-  thermistor_resistance = thermistor_resistance * 1000 ; /* Resistance in ohms   */
-  therm_res_ln = log(thermistor_resistance);
-  /*  Steinhart-Hart Thermistor Equation: */
-  /*  Temperature in Kelvin = 1 / (A + B[ln(R)] + C[ln(R)]^3)   */
-  /*  where A = 0.001129148, B = 0.000234125 and C = 8.76741*10^-8  */
-  temperature = ( 1 / ( 0.001129148 + ( 0.000234125 * therm_res_ln ) + ( 0.0000000876741 * therm_res_ln * therm_res_ln * therm_res_ln ) ) ); /* Temperature in Kelvin */
-  temperature = temperature - 273.15; /* Temperature in degree Celsius */
-  return temperature;
+  int thermistor_adc_val = analogRead(pin);
+  double output_voltage = ( (thermistor_adc_val * 5.0) / 1023.0 ); // Toto predpoklada ADC rozliseni 1024, coz je na Ardiuno UNO myslim vzdycky
+  double thermistor_resistance = ( ( 5.0 * ( 10.0 / output_voltage ) ) - 10.0 ); // Resistance in kilo ohms
+  thermistor_resistance = thermistor_resistance * 1000 ; // Resistance in ohms
+}
+
+double resistanceToCelsius(double r)
+{
+  // Hodnoty z ts datasheetu https://img.gme.cz/files/eshop_data/eshop_data/2/118-042/dsh.118-042.1.pdf
+  const double A_1 = 3.354016E-03;
+  const double B_1 = 3.495020E-04;
+  const double C_1 = 2.095959E-06;
+  const double D_1 = 4.260615E-07;
+  const double R_ref = 10000;
+  
+  double LN = log(r/R_ref);
+
+  double T_k = 1.0/(A_1 + B_1*LN + C_1*LN*LN + D_1*LN*LN*LN);
+
+  return T_k-273.15;
 }
 
 void printTime()
