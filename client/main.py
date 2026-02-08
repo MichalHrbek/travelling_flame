@@ -1,11 +1,26 @@
-# pip install pyserial
-# https://www.pyserial.com/docs
+# Je potreba nainstalovat knihovnu pyserial: 'pip install pyserial'
 import sys
 import os
 from datetime import datetime
 import serial
 import serial.tools.list_ports
 import traceback
+import time
+from dataclasses import dataclass, field
+
+@dataclass
+class FlameRun:
+    lighter_start_time: int = field(default=0)
+    lighter_duration: int = field(default=0)
+    flame_arrive_time: int = field(default=0)
+    start_temps: list[int] = field(default_factory=list)
+
+    def to_csv(self) -> str:
+        return f"{self.lighter_start_time}, {self.lighter_duration}, {self.flame_arrive_time}, {', '.join([str(i) for i in self.start_temps])}"
+    
+    def generate_csv_header(n_temps: int) -> str:
+        return f"lighter_start_time, lighter_duration, flame_arrive_time, {', '.join([f'start_temp_{i}' for i in range(n_temps)])}"
+
 
 def gen_filename() -> str:
     dirname = os.path.join(os.path.dirname(__file__), "out/")
@@ -27,10 +42,45 @@ def main(port: str):
     while not ser.closed:
         try:
             command = input("Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): ").strip()
-            if ' ' in command:
-                t,g = map(int, command.split())
-            else:
-                t = int(command)
+            if (command == 'f'):
+                ser.write('f')
+                continue
+
+            ser.write(("d " + command + '\n'))
+            
+            command_args = map(int, command.split())
+            duration = command_args[0]
+            delays = command_args[1:]
+
+            n_runs = command.count(' ') + 1
+            run_index = 0
+
+            runs: list[FlameRun] = []
+
+            while True:
+                line = ser.readline().strip().decode()
+
+                if not line: continue
+                args = line.split()
+                match args[0]:
+                    case 'S':
+                        runs.append(FlameRun(int(args[1]), duration))
+                    case 'T':
+                        runs[run_index].start_temps = [int(i) for i in args]
+                    case 'E':
+                        # runs[run_index].duration
+                        run_index += 1
+
+                break
+
+            with open(gen_filename(), 'w') as f:
+                f.write(FlameRun.generate_csv_header(len(runs[0].start_temps)))
+                f.write('\n')
+                for i in runs:
+                    f.write(i.to_csv())
+                    f.write('\n')
+
+            
         except:
             traceback.print_exc()
             continue
