@@ -23,7 +23,7 @@ Teploty thermistoru v C, kde n je N_THERMISTORS:
   'T <t_1> <t_2> ... <t_n>'
 
 Zapalovac zapnut:
-  'B <cTimeMs>'
+  'S <cTimeMs>'
 
 Zapalovac vypnut:
   'E <elapsedTimeUs> <cTimeMs>'
