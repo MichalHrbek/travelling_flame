@@ -6,6 +6,7 @@
 //  oranzova - output z arduina
 
 #define FLAME_SENSOR_PIN 7
+#define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
 #define LIGHTER_PIN 6
 #define LIGHTER_MILIS 10
@@ -75,17 +76,16 @@ void printTime()
 
 void printThermistors()
 {
+  Serial.print("T");
   for (size_t i = 0; i < N_THERMISTORS; i++)
   {
-    Serial.print("T");
-    Serial.print(i);
-    Serial.print(": ");
-    Serial.println(readCelsiusTemp(thermistorPins[i]));
+    Serial.print(readCelsiusTemp(thermistorPins[i]));
+    Serial.print(" ");
   }
 }
 
 bool lighterOn = false;
-unsigned long lighterStartMicros = 0;
+Timer lighterTimer;
 bool sensorVal = true;
 
 void loop() {
@@ -120,7 +120,7 @@ void loop() {
       printTime();
       Serial.println(" - Starting lighter");
       lighterOn = true;
-      lighterStartMicros = micros();
+      lighterTimer.start();
       digitalWrite(LIGHTER_PIN, HIGH);
     }
   }
@@ -128,14 +128,14 @@ void loop() {
   // ---- Checking if the lighter timer finnished ----
   if (lighterOn)
   {
-    unsigned long currentMicros = micros();
-    if (lighterStartMicros+LIGHTER_MILIS*1000 < currentMicros)
+    unsigned long elapsed = lighterTimer.elapsedMicros();
+    if (elapsed > LIGHTER_MILIS*1000)
     {
       lighterOn = false;
       digitalWrite(LIGHTER_PIN, LOW);
       printTime();
       Serial.print(" - Ending lighter (ran for ");
-      Serial.print(currentMicros-lighterStartMicros);
+      Serial.print(elapsed);
       Serial.println("us)");
     }
   }
