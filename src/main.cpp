@@ -5,14 +5,48 @@
 //  zluta - input do arduina
 //  oranzova - output z arduina
 
+/*
+---- Vstupy ----
+
+Vytisknout teploty:
+  't'
+
+Zapnout zapalovac na <DEFAULT_LIGHTER_MILIS>:
+  'f'
+
+Zapnout zapalovac na <lighterMs> n-krat s prodlevama d (ms):
+  'd <lighterMs> <d_1> <d_2> ... <d_n>'
+
+
+---- Vystupy ----
+Teploty thermistoru v C, kde n je N_THERMISTORS:
+  'T <t_1> <t_2> ... <t_n>'
+
+Zapalovac zapnut:
+  'B <cTimeMs>'
+
+Zapalovac vypnut:
+  'E <elapsedTimeUs> <cTimeMs>'
+
+Zmena na senzoru:
+  'F <0|1> <cTimeMs>'
+
+Chybova hlaska:
+  'O <text>'
+*/
+
 #define FLAME_SENSOR_PIN 7
 #define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
 #define LIGHTER_PIN 6
-#define LIGHTER_MILIS 10
+#define DEFAULT_LIGHTER_MILIS 10 // Used when 'f' is pressed
 
 #define N_THERMISTORS 1
 const int thermistorPins[N_THERMISTORS] = {A1};
+
+#define MAX_N_DELAYS 32 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
+unsigned int delaysMs[MAX_N_DELAYS] = {}; // ms
+int nDelays = 0;
 
 class Timer {
   public:
@@ -82,25 +116,63 @@ void printThermistors()
     Serial.print(readCelsiusTemp(thermistorPins[i]));
     Serial.print(" ");
   }
+  Serial.println();
 }
 
-bool lighterOn = false;
 Timer lighterTimer;
 bool sensorVal = true;
+int delayIndex = 0;
+unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
 
-void loop() {
-  // ---- Reading flame sensor ----
-  bool newSensorVal = digitalRead(FLAME_SENSOR_PIN);
-  if (newSensorVal != sensorVal)
-  {
-    sensorVal = newSensorVal;
-    printTime();
-    if (sensorVal) Serial.println(" - Flame sensor: ON");
-    else Serial.println(" - Flame sensor: OFF");
-  }
-  
+enum State { 
+  WAITING_FOR_INPUT, // The lighting sequence finnished, but still might be waiting for the last flame to arrive
+  LIGHTER_ON, // The lighter is on
+  LIGHTER_OFF, // The lighter is off, but it will be turned on again
+};
+State state = WAITING_FOR_INPUT;
 
-  // ---- Checking for serial input ----
+void turnLighterOn()
+{
+  if (state == LIGHTER_ON) return;
+  lighterTimer.start();
+  digitalWrite(LIGHTER_PIN, HIGH);
+  state = LIGHTER_ON;
+
+  Serial.println();
+  Serial.print("S ");
+  printTime();
+  Serial.println();
+  printThermistors();
+}
+
+void turnLighterOff()
+{
+  if (state == LIGHTER_OFF) return;
+  digitalWrite(LIGHTER_PIN, LOW);
+  state = LIGHTER_OFF;
+  delayIndex++;
+
+  Serial.print("E ");
+  Serial.print(lighterTimer.elapsedMicros());
+  Serial.print(" ");
+  printTime();
+  Serial.println();
+}
+
+void begin()
+{
+  delayIndex = 0;
+  turnLighterOn();
+}
+
+void end()
+{
+  turnLighterOff();
+  state = WAITING_FOR_INPUT;
+}
+
+void onWaitingForInput() // Checking for serial input
+{
   if (Serial.available() > 0)
   {
     int b = Serial.read();
@@ -116,27 +188,82 @@ void loop() {
     // Starting the lighter
     if ((char)b == 'f')
     {
-      Serial.println();
+      nDelays = 0;
+      lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
+      turnLighterOn();
+      begin();
+    }
+
+    if ((char)b == 'd')
+    {
+      String s = "";
+      unsigned long lighterMs = 0;
+      int spaces = 0;
+      while (true)
+      {
+        b = Serial.read();
+        if (b == -1) continue;
+        if (b != (int)' ' && b != (int)'\n')
+        {
+          s += (char)b;
+          continue;
+        }
+
+        if (spaces == 0) lighterMs = s.toInt();
+        else delaysMs[spaces-1] = s.toInt();
+        spaces++;
+        s = "";
+
+        if (b == (int)'\n') break;
+        if (spaces > MAX_N_DELAYS) 
+        {
+          Serial.println("O Too much data!!");
+          break;
+        }
+      }
+      nDelays = spaces - 1;
+      begin();
+    }
+  }
+}
+
+void loop() {
+  if (state == WAITING_FOR_INPUT)
+  {
+    onWaitingForInput();
+  }
+
+  // ---- Reading flame sensor ----
+  if (lighterTimer.elapsedMicros() > lighterMicros*FLAME_SENSOR_ERROR_TIMER)
+  {
+    bool newSensorVal = digitalRead(FLAME_SENSOR_PIN);
+    if (newSensorVal != sensorVal)
+    {
+      sensorVal = newSensorVal;
+      if (sensorVal) Serial.print("F 1 ");
+      else Serial.print("F 0 ");
       printTime();
-      Serial.println(" - Starting lighter");
-      lighterOn = true;
-      lighterTimer.start();
-      digitalWrite(LIGHTER_PIN, HIGH);
     }
   }
 
   // ---- Checking if the lighter timer finnished ----
-  if (lighterOn)
+  if (state == LIGHTER_ON)
   {
-    unsigned long elapsed = lighterTimer.elapsedMicros();
-    if (elapsed > LIGHTER_MILIS*1000)
+    if (lighterTimer.elapsedMicros() > lighterMicros)
     {
-      lighterOn = false;
-      digitalWrite(LIGHTER_PIN, LOW);
-      printTime();
-      Serial.print(" - Ending lighter (ran for ");
-      Serial.print(elapsed);
-      Serial.println("us)");
+      turnLighterOff();
+    }
+  }
+
+  if (state == LIGHTER_OFF)
+  {
+    if (delayIndex == nDelays) end(); // All shots fired
+    else
+    {
+      if (lighterTimer.elapsedMicros() > delaysMs[delayIndex]*1000)
+      {
+        turnLighterOn();
+      }
     }
   }
 }
