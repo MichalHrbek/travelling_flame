@@ -41,12 +41,14 @@ Chybova hlaska:
 #define LIGHTER_PIN 6
 #define DEFAULT_LIGHTER_MILIS 10 // Used when 'f' is pressed
 
-#define N_THERMISTORS 1
-const int thermistorPins[N_THERMISTORS] = {A1};
+#define N_THERMISTORS 4
+const int thermistorPins[N_THERMISTORS] = {A0,A1,A2,A3};
 
 #define MAX_N_DELAYS 32 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
 unsigned int delaysMs[MAX_N_DELAYS] = {}; // ms
 int nDelays = 0;
+
+#define DIODES_PIN 3
 
 class Timer {
   public:
@@ -76,16 +78,8 @@ class Timer {
 void setup() {
   pinMode(FLAME_SENSOR_PIN, INPUT_PULLUP);
   pinMode(LIGHTER_PIN, OUTPUT);
+  pinMode(DIODES_PIN, OUTPUT);
   Serial.begin(9600);
-}
-
-double readCelsiusTemp(int pin)
-{
-  int thermistor_adc_val = analogRead(pin);
-  double output_voltage = ( (thermistor_adc_val * 5.0) / 1023.0 ); // Toto predpoklada ADC rozliseni 1024, coz je na Ardiuno UNO myslim vzdycky
-  double thermistor_resistance = ( ( 5.0 * ( 10.0 / output_voltage ) ) - 10.0 ); // Resistance in kilo ohms
-  thermistor_resistance = thermistor_resistance * 1000 ; // Resistance in ohms
-  return resistanceToCelsius(thermistor_resistance);
 }
 
 double resistanceToCelsius(double r)
@@ -104,6 +98,14 @@ double resistanceToCelsius(double r)
   return T_k-273.15;
 }
 
+double readCelsiusTemp(int pin)
+{
+  int thermistor_adc_val = analogRead(pin);
+  double output_voltage = ( (thermistor_adc_val * 5.0) / 1023.0 ); // Toto predpoklada ADC rozliseni 1024, coz je na Ardiuno UNO myslim vzdycky
+  double thermistor_resistance = (9100.0*output_voltage/(5-output_voltage));
+  return resistanceToCelsius(thermistor_resistance);
+}
+
 void printTime()
 {
   Serial.print(millis());
@@ -111,7 +113,7 @@ void printTime()
 
 void printThermistors()
 {
-  Serial.print("T");
+  Serial.print("T ");
   for (size_t i = 0; i < N_THERMISTORS; i++)
   {
     Serial.print(readCelsiusTemp(thermistorPins[i]));
@@ -124,6 +126,7 @@ Timer lighterTimer;
 bool sensorVal = true;
 int delayIndex = 0;
 unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
+bool diodesOn = false;
 
 enum State { 
   WAITING_FOR_INPUT, // The lighting sequence finnished, but still might be waiting for the last flame to arrive
@@ -184,6 +187,16 @@ void onWaitingForInput() // Checking for serial input
     if ((char)b == 't')
     {
       printThermistors();
+    }
+
+    if ((char)b == 'b')
+    {
+      diodesOn = !diodesOn;
+      if (diodesOn) digitalWrite(DIODES_PIN, HIGH);
+      else digitalWrite(DIODES_PIN, LOW);
+      Serial.print("O Diodes ");
+      if (diodesOn) Serial.println("ON");
+      else Serial.println("OFF");
     }
 
     // Starting the lighter
