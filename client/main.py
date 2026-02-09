@@ -41,7 +41,7 @@ def main(port: str):
     
     while not ser.closed:
         try:
-            command = input("Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): ").strip()
+            command = input("Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): \n").strip()
             if (command == 'f'):
                 ser.write('f')
                 continue
@@ -54,10 +54,17 @@ def main(port: str):
 
             n_runs = command.count(' ') + 1
             run_index = 0
+            flame_index = 0
+            last_flame_time = time.time()
 
             runs: list[FlameRun] = []
 
             while True:
+                if ser.in_waiting == 0:
+                    if time.time()-last_flame_time > 0:
+                        print("Waited too long for a flame. Ending")
+                        break
+                    continue
                 line = ser.readline().strip().decode()
 
                 if not line: continue
@@ -68,10 +75,16 @@ def main(port: str):
                     case 'T':
                         runs[run_index].start_temps = [int(i) for i in args]
                     case 'E':
+                        # TODO: record the real flame on time in micros
                         # runs[run_index].duration
                         run_index += 1
-
-                break
+                    case 'F':
+                        if int(args[1]) == 0: # TODO: idk
+                            runs[flame_index].flame_arrive_time = int(args[2])
+                            flame_index += 1
+                            last_flame_time = time.time()
+                if flame_index == n_runs and run_index == n_runs:
+                    break
 
             with open(gen_filename(), 'w') as f:
                 f.write(FlameRun.generate_csv_header(len(runs[0].start_temps)))
