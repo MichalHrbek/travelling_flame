@@ -85,6 +85,7 @@ double readCelsiusTemp(int pin)
   double output_voltage = ( (thermistor_adc_val * 5.0) / 1023.0 ); // Toto predpoklada ADC rozliseni 1024, coz je na Ardiuno UNO myslim vzdycky
   double thermistor_resistance = ( ( 5.0 * ( 10.0 / output_voltage ) ) - 10.0 ); // Resistance in kilo ohms
   thermistor_resistance = thermistor_resistance * 1000 ; // Resistance in ohms
+  return resistanceToCelsius(thermistor_resistance);
 }
 
 double resistanceToCelsius(double r)
