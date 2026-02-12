@@ -5,6 +5,11 @@
 //  zluta - input do arduina
 //  oranzova - output z arduina
 
+// zelena - u prijmace - A2 - oranzova
+// modra - u zapalovace - A3 - zluta
+// oranzova - uprostred - A1 - hneda
+// vlevo zapalovac, vpravo prijmac
+
 /*
 ---- Vstupy ----
 
@@ -42,7 +47,8 @@ Chybova hlaska:
 #define DEFAULT_LIGHTER_MILIS 10 // Used when 'f' is pressed
 
 #define N_THERMISTORS 4
-const int thermistorPins[N_THERMISTORS] = {A0,A1,A2,A3};
+#define N_RELEVANT_THERMISTORS 3 // The first N thermistors are relevant, the last is ambient temp
+const int thermistorPins[N_THERMISTORS] = {A3,A1,A2,A0};
 
 #define MAX_N_DELAYS 32 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
 unsigned int delaysMs[MAX_N_DELAYS] = {}; // ms
@@ -86,9 +92,9 @@ double resistanceToCelsius(double r)
 {
   // Hodnoty z ts datasheetu https://img.gme.cz/files/eshop_data/eshop_data/2/118-042/dsh.118-042.1.pdf
   const double A_1 = 3.354016E-03;
-  const double B_1 = 3.495020E-04;
-  const double C_1 = 2.095959E-06;
-  const double D_1 = 4.260615E-07;
+  const double B_1 = 2.569850E-04;
+  const double C_1 = 2.620131E-06;
+  const double D_1 = 6.383091E-08;
   const double R_ref = 10000;
   
   double LN = log(r/R_ref);
@@ -111,6 +117,13 @@ void printTime()
   Serial.print(millis());
 }
 
+Timer lighterTimer;
+bool sensorVal = true;
+int delayIndex = 0;
+unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
+bool diodesOn = false;
+bool thermostatOn = false;
+
 void printThermistors()
 {
   Serial.print("T ");
@@ -119,14 +132,10 @@ void printThermistors()
     Serial.print(readCelsiusTemp(thermistorPins[i]));
     Serial.print(" ");
   }
+  if (diodesOn) Serial.print("D");
   Serial.println();
 }
 
-Timer lighterTimer;
-bool sensorVal = true;
-int delayIndex = 0;
-unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
-bool diodesOn = false;
 
 enum State { 
   WAITING_FOR_INPUT, // The lighting sequence finnished, but still might be waiting for the last flame to arrive
@@ -154,13 +163,24 @@ void turnLighterOff()
   if (state == LIGHTER_OFF) return;
   digitalWrite(LIGHTER_PIN, LOW);
   state = LIGHTER_OFF;
-  delayIndex++;
 
   Serial.print("E ");
   Serial.print(lighterTimer.elapsedMicros());
   Serial.print(" ");
   printTime();
   Serial.println();
+}
+
+void keepTemp(double goalTemp)
+{
+  double avg;
+  for (size_t i = 0; i < N_RELEVANT_THERMISTORS; i++)
+  {
+    avg += readCelsiusTemp(thermistorPins[i]);
+  }
+  avg = avg/N_RELEVANT_THERMISTORS;
+  if (avg < goalTemp) diodesOn=true;
+  else diodesOn=false;
 }
 
 void begin()
@@ -208,6 +228,17 @@ void onWaitingForInput() // Checking for serial input
       begin();
     }
 
+    if ((char)b == 'g')
+    {
+      thermostatOn = !thermostatOn;
+      if (thermostatOn) Serial.println("O thermostat ON");
+      else 
+      {
+        Serial.println("O thermostat OFF");
+        diodesOn = false;
+      }
+    }
+
     if ((char)b == 'd')
     {
       String s = "";
@@ -222,7 +253,8 @@ void onWaitingForInput() // Checking for serial input
           s += (char)b;
           continue;
         }
-
+        
+        
         if (spaces == 0) lighterMs = s.toInt();
         else delaysMs[spaces-1] = s.toInt();
         spaces++;
@@ -234,14 +266,30 @@ void onWaitingForInput() // Checking for serial input
           Serial.println("O Too much data!!");
           break;
         }
+
       }
+      
+      lighterMicros = lighterMs*1000;
       nDelays = spaces - 1;
+      
+      // Serial.print("O spaces ");
+      // Serial.print(spaces);
+      // Serial.print(" | ");
+      // Serial.print(nDelays);
+      // Serial.print(" | ");
+      // Serial.println(delaysMs[0]);
+
       begin();
     }
   }
 }
 
 void loop() {
+  if (thermostatOn) keepTemp(40);
+  if (diodesOn) digitalWrite(DIODES_PIN, HIGH);
+  else digitalWrite(DIODES_PIN, LOW);
+
+
   if (state == WAITING_FOR_INPUT)
   {
     onWaitingForInput();
@@ -257,6 +305,7 @@ void loop() {
       if (sensorVal) Serial.print("F 1 ");
       else Serial.print("F 0 ");
       printTime();
+      Serial.println();
     }
   }
 
@@ -271,12 +320,23 @@ void loop() {
 
   if (state == LIGHTER_OFF)
   {
-    if (delayIndex == nDelays) end(); // All shots fired
+    if (delayIndex >= nDelays) end(); // All shots fired
     else
     {
-      if (lighterTimer.elapsedMicros() > delaysMs[delayIndex]*1000)
+      if (lighterTimer.elapsedMicros() > (unsigned long)delaysMs[delayIndex]*1000UL)
       {
+        // Serial.print("O ELAPSED ");
+        // Serial.print(lighterTimer.elapsedMicros());
+        // Serial.print(" Delay ");
+        // Serial.print(delaysMs[delayIndex]);
+        // Serial.print(" Delay*1000 ");
+        // Serial.print(delaysMs[delayIndex]*1000);
+        // Serial.print(" UL-Delay*1000 ");
+        // Serial.print((unsigned long)delaysMs[delayIndex]*1000UL);
+        // Serial.print(" INDEX: ");
+        // Serial.println(delayIndex);
         turnLighterOn();
+        delayIndex++;
       }
     }
   }
