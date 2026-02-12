@@ -41,14 +41,26 @@ def main(port: str):
     
     while not ser.closed:
         try:
-            command = input("Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): \n").strip()
-            if (command == 'f'):
-                ser.write('f')
-                continue
+            # "Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): \n"
+            command = input("f / d n n / g: ").strip()
+            if (not command.startswith('d')):
+                last_output = time.time()
+                while True:
+                    if ser.in_waiting == 0:
+                        if time.time()-last_flame_time > 5.0:
+                            print("Waited too long for a flame. Ending")
+                            break
+                        continue
+                    else:
+                        print(ser.readline())
 
-            ser.write(("d " + command + '\n'))
+                ser.write(command.encode())
+                continue
             
-            command_args = map(int, command.split())
+
+            ser.write(("d " + command + '\n').encode())
+            
+            command_args = list(map(int, command.split()[1:]))
             duration = command_args[0]
             delays = command_args[1:]
 
@@ -61,11 +73,12 @@ def main(port: str):
 
             while True:
                 if ser.in_waiting == 0:
-                    if time.time()-last_flame_time > 0:
+                    if time.time()-last_flame_time > 5.0:
                         print("Waited too long for a flame. Ending")
                         break
                     continue
                 line = ser.readline().strip().decode()
+                print(line)
 
                 if not line: continue
                 args = line.split()
@@ -73,7 +86,7 @@ def main(port: str):
                     case 'S':
                         runs.append(FlameRun(int(args[1]), duration))
                     case 'T':
-                        runs[run_index].start_temps = [int(i) for i in args]
+                        runs[run_index].start_temps = [float(i) for i in args[1:]]
                     case 'E':
                         # TODO: record the real flame on time in micros
                         # runs[run_index].duration
@@ -94,9 +107,12 @@ def main(port: str):
                     f.write('\n')
 
             
-        except:
+        except Exception:
             traceback.print_exc()
             continue
+
+        except KeyboardInterrupt:
+            break
         
         
 
