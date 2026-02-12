@@ -40,21 +40,37 @@ Chybova hlaska:
   'O <text>'
 */
 
+#ifdef CONFIG_UNO
+#define LIGHTER_PIN 6
 #define FLAME_SENSOR_PIN 7
+#define FLAME_SENSOR_PIN_MODE INPUT_PULLUP
+#define N_THERMISTORS 4
+#define THERMISTOR_PINS {A3,A1,A2,A0}
+#endif
+#ifdef CONFIG_ESP_TEST
+#define LIGHTER_PIN 1
+#define FLAME_SENSOR_PIN 0
+#define FLAME_SENSOR_PIN_MODE INPUT
+#define N_THERMISTORS 4
+#define THERMISTOR_PINS {4,5,6,7}
+#endif
+
 #define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
-#define LIGHTER_PIN 6
 #define DEFAULT_LIGHTER_MILIS 10 // Used when 'f' is pressed
 
-#define N_THERMISTORS 4
-#define N_RELEVANT_THERMISTORS 3 // The first N thermistors are relevant, the last is ambient temp
-const int thermistorPins[N_THERMISTORS] = {A3,A1,A2,A0};
+#define N_RELEVANT_THERMISTORS (N_THERMISTORS-1) // The first N thermistors are relevant, the last is ambient temp
+const int thermistorPins[N_THERMISTORS] = THERMISTOR_PINS;
 
 #define MAX_N_DELAYS 32 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
 unsigned int delaysMs[MAX_N_DELAYS] = {}; // ms
 int nDelays = 0;
 
 #define DIODES_PIN 3
+
+#ifdef CONFIG_ESP_TEST
+#include <Adafruit_NeoPixel.h>
+#endif
 
 class Timer {
   public:
@@ -82,7 +98,7 @@ class Timer {
 };
 
 void setup() {
-  pinMode(FLAME_SENSOR_PIN, INPUT_PULLUP);
+  pinMode(FLAME_SENSOR_PIN, FLAME_SENSOR_PIN_MODE);
   pinMode(LIGHTER_PIN, OUTPUT);
   pinMode(DIODES_PIN, OUTPUT);
   Serial.begin(9600);
@@ -148,7 +164,12 @@ void turnLighterOn()
 {
   if (state == LIGHTER_ON) return;
   lighterTimer.start();
+  #ifdef CONFIG_UNO
   digitalWrite(LIGHTER_PIN, HIGH);
+  #endif
+  #ifdef CONFIG_ESP_TEST
+  neopixelWrite(LED_BUILTIN, 100, 0, 0);
+  #endif
   state = LIGHTER_ON;
 
   Serial.println();
@@ -161,7 +182,12 @@ void turnLighterOn()
 void turnLighterOff()
 {
   if (state == LIGHTER_OFF) return;
+  #ifdef CONFIG_UNO
   digitalWrite(LIGHTER_PIN, LOW);
+  #endif
+  #ifdef CONFIG_ESP_TEST
+  neopixelWrite(LED_BUILTIN, 0, 0, 0);
+  #endif
   state = LIGHTER_OFF;
 
   Serial.print("E ");
@@ -200,9 +226,11 @@ void onWaitingForInput() // Checking for serial input
   if (Serial.available() > 0)
   {
     int b = Serial.read();
+    Serial.print("O Recieved: ");
+    if (b != '\n' && b != '\r') Serial.print((char)b);
+    Serial.print(" - ");
     printTime();
-    Serial.print(" - Recieved: ");
-    Serial.println((char)b);
+    Serial.println();
 
     if ((char)b == 't')
     {
