@@ -5,7 +5,7 @@ from datetime import datetime
 import serial
 import serial.tools.list_ports
 import traceback
-import time
+import select
 from dataclasses import dataclass, field
 
 @dataclass
@@ -36,45 +36,49 @@ def list_devices():
     for port in ports:
         print(f"{port.device}: {port.description}")
 
+def stdin_available():
+    return select.select([sys.stdin], [], [], 0.0)[0]
+
 def main(port: str):
     ser = serial.Serial(port, 9600, timeout=1)
-    
+    print(ser.read())
     while not ser.closed:
         try:
             # "Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): \n"
-            command = input("f / d n n / g: ").strip()
+            command = input("Command: ").strip()
+            if ser.in_waiting:
+                print(ser.read().strip().decode())
+
             if (not command.startswith('d')):
-                last_output = time.time()
+                ser.write(command.encode())
                 while True:
                     if ser.in_waiting == 0:
-                        if time.time()-last_flame_time > 5.0:
-                            print("Waited too long for a flame. Ending")
+                        if stdin_available():
+                            print("Cancelled")
+                            sys.stdin.read(1)
                             break
-                        continue
                     else:
-                        print(ser.readline())
+                        print(ser.readline().strip().decode())
 
-                ser.write(command.encode())
                 continue
             
 
-            ser.write(("d " + command + '\n').encode())
+            ser.write(command.encode() + b'\n')
             
             command_args = list(map(int, command.split()[1:]))
-            duration = command_args[0]
-            delays = command_args[1:]
+            delays = command_args[:]
 
             n_runs = command.count(' ') + 1
             run_index = 0
             flame_index = 0
-            last_flame_time = time.time()
 
             runs: list[FlameRun] = []
 
             while True:
                 if ser.in_waiting == 0:
-                    if time.time()-last_flame_time > 5.0:
-                        print("Waited too long for a flame. Ending")
+                    if stdin_available():
+                        print("Cancelled")
+                        sys.stdin.read(1)
                         break
                     continue
                 line = ser.readline().strip().decode()
@@ -84,27 +88,30 @@ def main(port: str):
                 args = line.split()
                 match args[0]:
                     case 'S':
-                        runs.append(FlameRun(int(args[1]), duration))
+                        runs.append(FlameRun(int(args[1])))
                     case 'T':
                         runs[run_index].start_temps = [float(i) for i in args[1:]]
                     case 'E':
-                        # TODO: record the real flame on time in micros
-                        # runs[run_index].duration
+                        runs[run_index].lighter_duration = int(args[1])
                         run_index += 1
                     case 'F':
                         if int(args[1]) == 0: # TODO: idk
                             runs[flame_index].flame_arrive_time = int(args[2])
                             flame_index += 1
-                            last_flame_time = time.time()
                 if flame_index == n_runs and run_index == n_runs:
+                    print("All data recorded")
                     break
 
-            with open(gen_filename(), 'w') as f:
-                f.write(FlameRun.generate_csv_header(len(runs[0].start_temps)))
-                f.write('\n')
-                for i in runs:
-                    f.write(i.to_csv())
+            print("Exporting")
+            if len(runs):
+                with open(gen_filename(), 'w') as f:
+                    f.write(FlameRun.generate_csv_header(len(runs[0].start_temps)))
                     f.write('\n')
+                    for i in runs:
+                        f.write(i.to_csv())
+                        f.write('\n')
+            else:
+                print("Error: recieved no data")
 
             
         except Exception:
