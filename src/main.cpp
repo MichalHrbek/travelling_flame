@@ -20,8 +20,13 @@ Zapnout zapalovac na <DEFAULT_LIGHTER_MILIS>:
   'f'
 
 Zapnout zapalovac na <lighterMs> n-krat s prodlevama d (ms):
-  'd <lighterMs> <d_1> <d_2> ... <d_n>'
+  'd<lighterMs> <d_1> <d_2> ... <d_n>'
 
+Termostat:
+  'g'
+
+Diody:
+  'd'
 
 ---- Vystupy ----
 Teploty thermistoru v C, kde n je N_THERMISTORS:
