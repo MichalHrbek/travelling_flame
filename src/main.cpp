@@ -1,61 +1,14 @@
-#include <Arduino.h> // Tohle je mozna potreba odstranit pri spousteni v Arduino IDE
-
-// Dratky:
-//  zelena - zem
-//  zluta - input do arduina
-//  oranzova - output z arduina
-
-// zelena - u prijmace - A2 - oranzova
-// modra - u zapalovace - A3 - zluta
-// oranzova - uprostred - A1 - hneda
-// vlevo zapalovac, vpravo prijmac
-
-/*
----- Vstupy ----
-
-Vytisknout teploty:
-  't'
-
-Zapnout zapalovac na <DEFAULT_LIGHTER_MILIS>:
-  'f'
-
-Zapnout zapalovac na <lighterMs> n-krat s prodlevama d (ms):
-  'd<lighterMs> <d_1> <d_2> ... <d_n>'
-
-Termostat:
-  'g'
-
-Diody:
-  'd'
-
----- Vystupy ----
-Teploty thermistoru v C, kde n je N_THERMISTORS:
-  'T <t_1> <t_2> ... <t_n>'
-
-Zapalovac zapnut:
-  'S <cTimeMs>'
-
-Zapalovac vypnut:
-  'E <elapsedTimeUs> <cTimeMs>'
-
-Zmena na senzoru:
-  'F <0|1> <cTimeMs>'
-
-Chybova hlaska:
-  'O <text>'
-*/
+#include <Arduino.h>
 
 #ifdef CONFIG_UNO
 #define LIGHTER_PIN 6
 #define FLAME_SENSOR_PIN 7
-#define FLAME_SENSOR_PIN_MODE INPUT_PULLUP
 #define N_THERMISTORS 4
 #define THERMISTOR_PINS {A3,A1,A2,A0}
 #endif
 #ifdef CONFIG_ESP_TEST
-#define LIGHTER_PIN 1
-#define FLAME_SENSOR_PIN 0
-#define FLAME_SENSOR_PIN_MODE INPUT
+#define LIGHTER_PIN LED_BUILTIN
+#define FLAME_SENSOR_PIN 0 // Boot button
 #define N_THERMISTORS 4
 #define THERMISTOR_PINS {4,5,6,7}
 #endif
@@ -72,10 +25,6 @@ unsigned int delaysMs[MAX_N_DELAYS] = {}; // ms
 int nDelays = 0;
 
 #define DIODES_PIN 3
-
-#ifdef CONFIG_ESP_TEST
-#include <Adafruit_NeoPixel.h>
-#endif
 
 class Timer {
   public:
@@ -103,7 +52,7 @@ class Timer {
 };
 
 void setup() {
-  pinMode(FLAME_SENSOR_PIN, FLAME_SENSOR_PIN_MODE);
+  pinMode(FLAME_SENSOR_PIN, INPUT_PULLUP);
   pinMode(LIGHTER_PIN, OUTPUT);
   pinMode(DIODES_PIN, OUTPUT);
   Serial.begin(9600);
@@ -169,12 +118,7 @@ void turnLighterOn()
 {
   if (state == LIGHTER_ON) return;
   lighterTimer.start();
-  #ifdef CONFIG_UNO
   digitalWrite(LIGHTER_PIN, HIGH);
-  #endif
-  #ifdef CONFIG_ESP_TEST
-  neopixelWrite(LED_BUILTIN, 100, 0, 0);
-  #endif
   state = LIGHTER_ON;
 
   Serial.println();
@@ -187,14 +131,9 @@ void turnLighterOn()
 void turnLighterOff()
 {
   if (state == LIGHTER_OFF) return;
-  #ifdef CONFIG_UNO
-  digitalWrite(LIGHTER_PIN, LOW);
-  #endif
-  #ifdef CONFIG_ESP_TEST
-  neopixelWrite(LED_BUILTIN, 0, 0, 0);
-  #endif
+  digitalWrite(LED_BUILTIN, LOW);
   state = LIGHTER_OFF;
-
+  
   Serial.print("E ");
   Serial.print(lighterTimer.elapsedMicros());
   Serial.print(" ");
@@ -304,13 +243,6 @@ void onWaitingForInput() // Checking for serial input
       
       lighterMicros = lighterMs*1000;
       nDelays = spaces - 1;
-      
-      // Serial.print("O spaces ");
-      // Serial.print(spaces);
-      // Serial.print(" | ");
-      // Serial.print(nDelays);
-      // Serial.print(" | ");
-      // Serial.println(delaysMs[0]);
 
       begin();
     }
@@ -358,16 +290,6 @@ void loop() {
     {
       if (lighterTimer.elapsedMicros() > (unsigned long)delaysMs[delayIndex]*1000UL)
       {
-        // Serial.print("O ELAPSED ");
-        // Serial.print(lighterTimer.elapsedMicros());
-        // Serial.print(" Delay ");
-        // Serial.print(delaysMs[delayIndex]);
-        // Serial.print(" Delay*1000 ");
-        // Serial.print(delaysMs[delayIndex]*1000);
-        // Serial.print(" UL-Delay*1000 ");
-        // Serial.print((unsigned long)delaysMs[delayIndex]*1000UL);
-        // Serial.print(" INDEX: ");
-        // Serial.println(delayIndex);
         turnLighterOn();
         delayIndex++;
       }
