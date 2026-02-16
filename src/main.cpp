@@ -93,7 +93,9 @@ bool sensorVal = true;
 int delayIndex = 0;
 unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
 bool diodesOn = false;
+
 bool thermostatOn = false;
+double goalTemp = 40.0; 
 
 void printThermistors()
 {
@@ -142,7 +144,7 @@ void turnLighterOff()
   Serial.println();
 }
 
-void keepTemp(double goalTemp)
+void keepTemp()
 {
   double avg;
   for (size_t i = 0; i < N_RELEVANT_THERMISTORS; i++)
@@ -184,18 +186,10 @@ bool readInts(long* value) // Reads an int and checks if the following character
     *value = read;
     while (true)
     {
-      int b = Serial.peek();
+      int b = Serial.read();
       if (b == -1) continue;
-      if (b == ' ')
-      {
-        Serial.read();
-        return true;
-      }
-      else
-      {
-        Serial.read();
-        return false;
-      }
+      if (b == ' ') return true;
+      if (b == '\n') return false;
     }
   }
 }
@@ -246,6 +240,14 @@ void onWaitingForInput() // Checking for serial input
       }
     }
 
+    if ((char)b == 's')
+    {
+      goalTemp = readInt();
+      while (Serial.read() != '\n');
+      Serial.print(thermostatOn ? "O thermostat (ON) set to " : "O thermostat (OFF) set to ");
+      Serial.println(goalTemp);
+    }
+
     if ((char)b == 'd')
     {
       String s = "";
@@ -275,7 +277,7 @@ void onWaitingForInput() // Checking for serial input
 }
 
 void loop() {
-  if (thermostatOn) keepTemp(40);
+  if (thermostatOn) keepTemp();
   if (diodesOn) digitalWrite(DIODES_PIN, HIGH);
   else digitalWrite(DIODES_PIN, LOW);
 

@@ -5,9 +5,11 @@ Vytisknout teploty: `t`
 
 Zapnout zapalovac na DEFAULT_LIGHTER_MILIS: `f`
 
-Zapnout zapalovac na `<l>` (n+1)krat s prodlevama d: `d<l> <d_1> <d_2> ... <d_n>`
+Zapnout zapalovac na `<l>` (n+1)krat s prodlevama d: `d <l> <d_1> <d_2> ... <d_n>`
 
 Termostat: `g`
+
+Nastavit termostat: `s <t_C>`
 
 Topici Diody: `d`
 
