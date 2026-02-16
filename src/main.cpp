@@ -20,8 +20,8 @@
 #define N_RELEVANT_THERMISTORS (N_THERMISTORS-1) // The first N thermistors are relevant, the last is ambient temp
 const int thermistorPins[N_THERMISTORS] = THERMISTOR_PINS;
 
-#define MAX_N_DELAYS 32 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
-unsigned int delaysMs[MAX_N_DELAYS] = {}; // ms
+#define MAX_N_DELAYS 24 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
+long delaysMs[MAX_N_DELAYS] = {}; // ms
 int nDelays = 0;
 
 #define DIODES_PIN 3
@@ -56,6 +56,7 @@ void setup() {
   pinMode(LIGHTER_PIN, OUTPUT);
   pinMode(DIODES_PIN, OUTPUT);
   Serial.begin(9600);
+  Serial.setTimeout(0xffffff);
 }
 
 double resistanceToCelsius(double r)
@@ -165,6 +166,40 @@ void end()
   state = WAITING_FOR_INPUT;
 }
 
+long readInt()
+{
+  while (true)
+  {
+    long val = Serial.parseInt();
+    if (val) return val;
+  }
+}
+
+bool readInts(long* value) // Reads an int and checks if the following character was a newline or a space
+{
+  while (true)
+  {
+    long read = Serial.parseInt();
+    if (!read) continue;
+    *value = read;
+    while (true)
+    {
+      int b = Serial.peek();
+      if (b == -1) continue;
+      if (b == ' ')
+      {
+        Serial.read();
+        return true;
+      }
+      else
+      {
+        Serial.read();
+        return false;
+      }
+    }
+  }
+}
+
 void onWaitingForInput() // Checking for serial input
 {
   if (Serial.available() > 0)
@@ -214,35 +249,25 @@ void onWaitingForInput() // Checking for serial input
     if ((char)b == 'd')
     {
       String s = "";
-      unsigned long lighterMs = 0;
-      int spaces = 0;
-      while (true)
+      nDelays = 0;
+      
+      bool shouldContinue = readInts((long*)&lighterMicros);
+      lighterMicros *= 1000UL;
+      Serial.print("O lighter ");
+      Serial.println(lighterMicros);
+      while (shouldContinue)
       {
-        b = Serial.read();
-        if (b == -1) continue;
-        if (b != (int)' ' && b != (int)'\n')
-        {
-          s += (char)b;
-          continue;
-        }
-        
-        
-        if (spaces == 0) lighterMs = s.toInt();
-        else delaysMs[spaces-1] = s.toInt();
-        spaces++;
-        s = "";
-
-        if (b == (int)'\n') break;
-        if (spaces > MAX_N_DELAYS) 
+        shouldContinue = readInts(&delaysMs[nDelays++]);
+        Serial.print("O delay no. ");
+        Serial.print(nDelays-1);
+        Serial.print(" = ");
+        Serial.println(delaysMs[nDelays-1]);
+        if (nDelays == MAX_N_DELAYS)
         {
           Serial.println("O Too much data!!");
           break;
         }
-
       }
-      
-      lighterMicros = lighterMs*1000;
-      nDelays = spaces - 1;
 
       begin();
     }
