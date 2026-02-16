@@ -10,7 +10,23 @@
 #define LIGHTER_PIN LED_BUILTIN
 #define FLAME_SENSOR_PIN 0 // Boot button
 #define N_THERMISTORS 4
-#define THERMISTOR_PINS {4,5,6,7}
+#define THERMISTOR_PINS {1,1,1,1}
+#endif
+#ifdef CONFIG_ESP_DISPLAY
+#include <Wire.h>
+#include <U8g2lib.h>
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+#define SDA_PIN 39
+#define SCL_PIN 37
+#define PIN_K1 9
+#define PIN_K2 7
+#define PIN_K3 5
+#define PIN_K4 3
+#define PIN_BTN_UP PIN_K1
+#define PIN_BTN_DOWN PIN_K2
+#define PIN_BTN_HOME PIN_K3
+#define PIN_BTN_SELECT PIN_K4
+#define UPDATE_FREQ_MS 100
 #endif
 
 #define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
@@ -57,6 +73,16 @@ void setup() {
   pinMode(DIODES_PIN, OUTPUT);
   Serial.begin(9600);
   Serial.setTimeout(0xffffff);
+  #ifdef CONFIG_ESP_DISPLAY
+  Wire.begin(SDA_PIN, SCL_PIN);
+  pinMode(PIN_K1, INPUT);
+  pinMode(PIN_K2, INPUT);
+  pinMode(PIN_K3, INPUT);
+  pinMode(PIN_K4, INPUT);
+  u8g2.begin(PIN_BTN_SELECT,PIN_BTN_DOWN,PIN_BTN_UP,U8X8_PIN_NONE,U8X8_PIN_NONE,PIN_BTN_HOME);
+  u8g2.clearBuffer();
+  u8g2.setFont(u8g2_font_spleen5x8_mf);
+  #endif
 }
 
 double resistanceToCelsius(double r)
@@ -194,8 +220,58 @@ bool readInts(long* value) // Reads an int and checks if the following character
   }
 }
 
+#ifdef CONFIG_ESP_DISPLAY
+Timer displayTimer;
+void redraw(bool force = false)
+{
+  if (!(force || (displayTimer.elapsedMillis() > UPDATE_FREQ_MS))) return;
+  displayTimer.start();
+  u8g2.clearBuffer();
+  u8g2.setCursor(0, 8);
+  u8g2.print("State: ");
+  u8g2.print(state == WAITING_FOR_INPUT ? "waiting for user" : "working");
+  u8g2.setCursor(0, 16);
+  u8g2.print("Time: ");
+  u8g2.print(millis());
+  // if (state != WAITING_FOR_INPUT)
+  {
+    u8g2.setCursor(0, 24);
+    u8g2.printf("Flames sent: %d/%d", delayIndex+1, nDelays+1);
+    if (nDelays)
+    {
+      u8g2.setCursor(0, 32);
+      u8g2.print("Delays: ");
+      for (size_t i = 0; i < nDelays; i++)
+      {
+        u8g2.print(delaysMs[i]);
+        u8g2.print(' ');
+      }
+    }
+  }
+  u8g2.sendBuffer();
+}
+
+void processInput()
+{
+  if (state != WAITING_FOR_INPUT) return;
+  if (digitalRead(PIN_K1) & digitalRead(PIN_K2) & digitalRead(PIN_K3) & digitalRead(PIN_K4)) return;
+  delay(200); // Rebound
+  uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nDiodes\nThermostat");
+  if (sel == 1)
+  {
+    nDelays = 0;
+    lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
+    turnLighterOn();
+    begin();
+  }
+}
+#endif
+
 void onWaitingForInput() // Checking for serial input
 {
+  #ifdef CONFIG_ESP_DISPLAY
+  processInput();
+  #endif
   if (Serial.available() > 0)
   {
     int b = Serial.read();
@@ -277,6 +353,9 @@ void onWaitingForInput() // Checking for serial input
 }
 
 void loop() {
+  #ifdef CONFIG_ESP_DISPLAY
+  redraw();
+  #endif
   if (thermostatOn) keepTemp();
   if (diodesOn) digitalWrite(DIODES_PIN, HIGH);
   else digitalWrite(DIODES_PIN, LOW);
