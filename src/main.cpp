@@ -221,28 +221,36 @@ bool readInts(long* value) // Reads an int and checks if the following character
 }
 
 #ifdef CONFIG_ESP_DISPLAY
+#define PT u8g2.print
+#define PTF u8g2.printf
 Timer displayTimer;
 void redraw(bool force = false)
 {
   if (!(force || (displayTimer.elapsedMillis() > UPDATE_FREQ_MS))) return;
+  uint8_t y = 0;
   displayTimer.start();
   u8g2.clearBuffer();
-  u8g2.setCursor(0, 8);
-  u8g2.print("State: ");
-  u8g2.print(state == WAITING_FOR_INPUT ? "waiting for user" : "working");
-  u8g2.setCursor(0, 16);
-  u8g2.print("Time: ");
-  u8g2.print(millis());
-  u8g2.setCursor(0, 24);
-  u8g2.printf("Flames sent: %d/%d", delayIndex+1, nDelays+1);
+  u8g2.setCursor(0, y += 8);
+  PT("State: ");
+  PT(state == WAITING_FOR_INPUT ? "waiting for user" : "working");
+  u8g2.setCursor(0, y += 8);
+  PT("Time: ");
+  PT(millis());
+  u8g2.setCursor(0, y += 8);
+  PT("Thermostat: ");
+  PT(thermostatOn ? "ON" : "OFF");
+  PT(", ");
+  PT(goalTemp);
+  u8g2.setCursor(0, y += 8);
+  PTF("Flames sent: %d/%d", delayIndex+1, nDelays+1);
   if (nDelays)
   {
-    u8g2.setCursor(0, 32);
-    u8g2.print("Delays: ");
+    u8g2.setCursor(0, y += 8);
+    PT("Delays: ");
     for (size_t i = 0; i < nDelays; i++)
     {
-      u8g2.print(delaysMs[i]);
-      u8g2.print(' ');
+      PT(delaysMs[i]);
+      PT(' ');
     }
   }
   u8g2.sendBuffer();
@@ -253,7 +261,7 @@ void processInput()
   if (state != WAITING_FOR_INPUT) return;
   if (digitalRead(PIN_K1) & digitalRead(PIN_K2) & digitalRead(PIN_K3) & digitalRead(PIN_K4)) return;
   delay(200); // Rebound
-  uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nDiodes\nThermostat");
+  uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nHeater toggle\nThermostat toggle\nThermostat set temp");
   if (sel == 1)
   {
     nDelays = 0;
@@ -279,7 +287,29 @@ void processInput()
       }
       begin();
     }
-
+  }
+  else if (sel == 3)
+  {
+    if (thermostatOn)
+    {
+      u8g2.userInterfaceMessage("The heater is\nbeing controlled\nby the thermostat!", "", "", " OK ");
+    }
+    else
+    {
+      diodesOn = !diodesOn;
+    }
+  }
+  else if (sel == 4)
+  {
+    thermostatOn = !thermostatOn;
+  }
+  else if (sel = 5)
+  {
+    uint8_t tempVal = 0;
+    if (u8g2.userInterfaceInputValue("Target thermostat temperature", "T = ", &tempVal, 0, 255, 3, " C"))
+    {
+      goalTemp = tempVal;
+    }
   }
 }
 #endif
