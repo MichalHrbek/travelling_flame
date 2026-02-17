@@ -233,19 +233,16 @@ void redraw(bool force = false)
   u8g2.setCursor(0, 16);
   u8g2.print("Time: ");
   u8g2.print(millis());
-  // if (state != WAITING_FOR_INPUT)
+  u8g2.setCursor(0, 24);
+  u8g2.printf("Flames sent: %d/%d", delayIndex+1, nDelays+1);
+  if (nDelays)
   {
-    u8g2.setCursor(0, 24);
-    u8g2.printf("Flames sent: %d/%d", delayIndex+1, nDelays+1);
-    if (nDelays)
+    u8g2.setCursor(0, 32);
+    u8g2.print("Delays: ");
+    for (size_t i = 0; i < nDelays; i++)
     {
-      u8g2.setCursor(0, 32);
-      u8g2.print("Delays: ");
-      for (size_t i = 0; i < nDelays; i++)
-      {
-        u8g2.print(delaysMs[i]);
-        u8g2.print(' ');
-      }
+      u8g2.print(delaysMs[i]);
+      u8g2.print(' ');
     }
   }
   u8g2.sendBuffer();
@@ -263,6 +260,26 @@ void processInput()
     lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
     turnLighterOn();
     begin();
+  }
+  else if (sel == 2)
+  {
+    uint8_t nFlames = 1;
+    if (u8g2.userInterfaceInputValue("Number of flames", "N = ", &nFlames, 1, MAX_N_DELAYS, 2, ""))
+    {
+      nDelays = nFlames-1;
+      if (nDelays)
+      {
+        uint8_t delayTime = 0;
+        u8g2.userInterfaceInputValue("Delay between flames", "T = ", &delayTime, 1, 255, 3, "00 ms");
+        long delayMs = delayTime*100L;
+        for (size_t i = 0; i < nDelays; i++)
+        {
+          delaysMs[i] = delayMs;
+        }
+      }
+      begin();
+    }
+
   }
 }
 #endif
