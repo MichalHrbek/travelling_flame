@@ -1,32 +1,33 @@
 #include <Arduino.h>
 
 #ifdef CONFIG_UNO
-#define LIGHTER_PIN 6
-#define FLAME_SENSOR_PIN 7
-#define N_THERMISTORS 4
-#define THERMISTOR_PINS {A3,A1,A2,A0}
+  #define LIGHTER_PIN 6
+  #define FLAME_SENSOR_PIN 7
+  #define N_THERMISTORS 4
+  #define THERMISTOR_PINS {A3,A1,A2,A0}
 #endif
 #ifdef CONFIG_ESP_TEST
-#define LIGHTER_PIN LED_BUILTIN
-#define FLAME_SENSOR_PIN 0 // Boot button
-#define N_THERMISTORS 4
-#define THERMISTOR_PINS {1,1,1,1}
+  #define LIGHTER_PIN LED_BUILTIN
+  #define FLAME_SENSOR_PIN 0 // Boot button
+  #define N_THERMISTORS 4
+  #define THERMISTOR_PINS {1,1,1,1}
 #endif
+
 #ifdef CONFIG_ESP_DISPLAY
-#include <Wire.h>
-#include <U8g2lib.h>
-U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
-#define SDA_PIN 39
-#define SCL_PIN 37
-#define PIN_K1 9
-#define PIN_K2 7
-#define PIN_K3 5
-#define PIN_K4 3
-#define PIN_BTN_UP PIN_K1
-#define PIN_BTN_DOWN PIN_K2
-#define PIN_BTN_HOME PIN_K3
-#define PIN_BTN_SELECT PIN_K4
-#define UPDATE_FREQ_MS 100
+  #include <Wire.h>
+  #include <U8g2lib.h>
+  U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+  #define SDA_PIN 39
+  #define SCL_PIN 37
+  #define PIN_K1 9
+  #define PIN_K2 7
+  #define PIN_K3 5
+  #define PIN_K4 3
+  #define PIN_BTN_UP PIN_K1
+  #define PIN_BTN_DOWN PIN_K2
+  #define PIN_BTN_HOME PIN_K3
+  #define PIN_BTN_SELECT PIN_K4
+  #define UPDATE_FREQ_MS 100
 #endif
 
 #define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
@@ -35,6 +36,8 @@ U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 #define N_RELEVANT_THERMISTORS (N_THERMISTORS-1) // The first N thermistors are relevant, the last is ambient temp
 const int thermistorPins[N_THERMISTORS] = THERMISTOR_PINS;
+double temperatureValues[N_THERMISTORS] = {};
+double avgTemp;
 
 #define MAX_N_DELAYS 24 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
 long delaysMs[MAX_N_DELAYS] = {}; // ms
@@ -109,6 +112,20 @@ double readCelsiusTemp(int pin)
   return resistanceToCelsius(thermistor_resistance);
 }
 
+void updateTemps()
+{
+  avgTemp = 0.0;
+  for (size_t i = 0; i < N_THERMISTORS; i++)
+  {
+    temperatureValues[i] = readCelsiusTemp(thermistorPins[i]);
+    if (i < N_RELEVANT_THERMISTORS)
+    {
+      avgTemp += temperatureValues[i];
+    }
+  }
+  avgTemp /= (double)N_RELEVANT_THERMISTORS;
+}
+
 void printTime()
 {
   Serial.print(millis());
@@ -123,16 +140,16 @@ bool heaterOn = false;
 bool thermostatOn = false;
 double goalTemp = 40.0; 
 
-void printThermistors()
+void printThermistors(Print* s)
 {
-  Serial.print("T ");
+  s->print("T ");
   for (size_t i = 0; i < N_THERMISTORS; i++)
   {
-    Serial.print(readCelsiusTemp(thermistorPins[i]));
-    Serial.print(" ");
+    s->print(temperatureValues[i]);
+    s->print(" ");
   }
-  if (heaterOn) Serial.print("D");
-  Serial.println();
+  if (heaterOn) s->print("H");
+  s->println();
 }
 
 
@@ -154,7 +171,7 @@ void turnLighterOn()
   Serial.print("S ");
   printTime();
   Serial.println();
-  printThermistors();
+  printThermistors(&Serial);
 }
 
 void turnLighterOff()
@@ -172,14 +189,8 @@ void turnLighterOff()
 
 void keepTemp()
 {
-  double avg;
-  for (size_t i = 0; i < N_RELEVANT_THERMISTORS; i++)
-  {
-    avg += readCelsiusTemp(thermistorPins[i]);
-  }
-  avg = avg/N_RELEVANT_THERMISTORS;
-  if (avg < goalTemp) heaterOn=true;
-  else heaterOn=false;
+  if (avgTemp < goalTemp) heaterOn = true;
+  else heaterOn = false;
 }
 
 void begin()
@@ -237,10 +248,17 @@ void redraw(bool force = false)
   PT("Time: ");
   PT(millis());
   u8g2.setCursor(0, y += 8);
-  PT("Thermostat: ");
-  PT(thermostatOn ? "ON" : "OFF");
+  PT("H: ");
+  if (thermostatOn) PT("Tstat->");
+  PT(heaterOn ? "ON" : "OFF");
   PT(", ");
+  PT(avgTemp);
+  PT("/");
   PT(goalTemp);
+  u8g2.setCursor(0, y += 8);
+  printThermistors(&u8g2);
+  u8g2.setCursor(0, y += 8);
+  for (size_t i = 0; i < 128/5; i++) PT('-');
   u8g2.setCursor(0, y += 8);
   PTF("Flames sent: %d/%d", delayIndex+1, nDelays+1);
   if (nDelays)
@@ -252,6 +270,11 @@ void redraw(bool force = false)
       PT(delaysMs[i]);
       PT(' ');
     }
+  }
+  if (!sensorVal)
+  {
+    u8g2.setCursor(0, y += 8);
+    PT("Flame detected`");
   }
   u8g2.sendBuffer();
 }
@@ -278,14 +301,17 @@ void processInput()
       if (nDelays)
       {
         uint8_t delayTime = 0;
-        u8g2.userInterfaceInputValue("Delay between flames", "T = ", &delayTime, 1, 255, 3, "00 ms");
-        long delayMs = delayTime*100L;
-        for (size_t i = 0; i < nDelays; i++)
+        if (u8g2.userInterfaceInputValue("Delay between flames", "T = ", &delayTime, 1, 255, 3, "00 ms"))
         {
-          delaysMs[i] = delayMs;
+          long delayMs = delayTime*100L;
+          for (size_t i = 0; i < nDelays; i++)
+          {
+            delaysMs[i] = delayMs;
+          }
+          begin();
         }
       }
-      begin();
+      else begin();
     }
   }
   else if (sel == 3)
@@ -330,7 +356,7 @@ void onWaitingForInput() // Checking for serial input
 
     if ((char)b == 't')
     {
-      printThermistors();
+      printThermistors(&Serial);
     }
 
     if ((char)b == 'h')
@@ -403,6 +429,7 @@ void loop() {
   #ifdef CONFIG_ESP_DISPLAY
   redraw();
   #endif
+  updateTemps();
   if (thermostatOn) keepTemp();
   if (heaterOn) digitalWrite(HEATER_PIN, HIGH);
   else digitalWrite(HEATER_PIN, LOW);
