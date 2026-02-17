@@ -40,7 +40,7 @@ const int thermistorPins[N_THERMISTORS] = THERMISTOR_PINS;
 long delaysMs[MAX_N_DELAYS] = {}; // ms
 int nDelays = 0;
 
-#define DIODES_PIN 3
+#define HEATER_PIN 3
 
 class Timer {
   public:
@@ -70,7 +70,7 @@ class Timer {
 void setup() {
   pinMode(FLAME_SENSOR_PIN, INPUT_PULLUP);
   pinMode(LIGHTER_PIN, OUTPUT);
-  pinMode(DIODES_PIN, OUTPUT);
+  pinMode(HEATER_PIN, OUTPUT);
   Serial.begin(9600);
   Serial.setTimeout(0xffffff);
   #ifdef CONFIG_ESP_DISPLAY
@@ -118,7 +118,7 @@ Timer lighterTimer;
 bool sensorVal = true;
 int delayIndex = 0;
 unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
-bool diodesOn = false;
+bool heaterOn = false;
 
 bool thermostatOn = false;
 double goalTemp = 40.0; 
@@ -131,7 +131,7 @@ void printThermistors()
     Serial.print(readCelsiusTemp(thermistorPins[i]));
     Serial.print(" ");
   }
-  if (diodesOn) Serial.print("D");
+  if (heaterOn) Serial.print("D");
   Serial.println();
 }
 
@@ -178,8 +178,8 @@ void keepTemp()
     avg += readCelsiusTemp(thermistorPins[i]);
   }
   avg = avg/N_RELEVANT_THERMISTORS;
-  if (avg < goalTemp) diodesOn=true;
-  else diodesOn=false;
+  if (avg < goalTemp) heaterOn=true;
+  else heaterOn=false;
 }
 
 void begin()
@@ -296,7 +296,7 @@ void processInput()
     }
     else
     {
-      diodesOn = !diodesOn;
+      heaterOn = !heaterOn;
     }
   }
   else if (sel == 4)
@@ -333,13 +333,13 @@ void onWaitingForInput() // Checking for serial input
       printThermistors();
     }
 
-    if ((char)b == 'b')
+    if ((char)b == 'h')
     {
-      diodesOn = !diodesOn;
-      if (diodesOn) digitalWrite(DIODES_PIN, HIGH);
-      else digitalWrite(DIODES_PIN, LOW);
-      Serial.print("O Diodes ");
-      if (diodesOn) Serial.println("ON");
+      heaterOn = !heaterOn;
+      if (heaterOn) digitalWrite(HEATER_PIN, HIGH);
+      else digitalWrite(HEATER_PIN, LOW);
+      Serial.print("O Heater ");
+      if (heaterOn) Serial.println("ON");
       else Serial.println("OFF");
     }
 
@@ -359,7 +359,7 @@ void onWaitingForInput() // Checking for serial input
       else 
       {
         Serial.println("O thermostat OFF");
-        diodesOn = false;
+        heaterOn = false;
       }
     }
 
@@ -404,8 +404,8 @@ void loop() {
   redraw();
   #endif
   if (thermostatOn) keepTemp();
-  if (diodesOn) digitalWrite(DIODES_PIN, HIGH);
-  else digitalWrite(DIODES_PIN, LOW);
+  if (heaterOn) digitalWrite(HEATER_PIN, HIGH);
+  else digitalWrite(HEATER_PIN, LOW);
 
 
   if (state == WAITING_FOR_INPUT)
