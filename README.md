@@ -1,5 +1,5 @@
 # Usage
-This was made of IYPT 2026 problem number 17.
+This was made for IYPT 2026 problem no. 17.
 ## Vstupy
 Vytisknout teploty: `t`
 
@@ -14,7 +14,7 @@ Nastavit termostat: `s <t_C>`
 Topeni ON/OFF: `h`
 
 ## Vystupy
-Teploty thermistoru v °C: `T <t_1> <t_2> ... <t_n>`
+Teploty termistoru v °C: `T <t_1> <t_2> ... <t_n>`
 
 Zapalovac zapnut: `S <timestampMs>`
 
