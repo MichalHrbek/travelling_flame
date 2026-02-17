@@ -233,7 +233,6 @@ bool readInts(long* value) // Reads an int and checks if the following character
 
 #ifdef CONFIG_ESP_DISPLAY
 #define PT u8g2.print
-#define PTF u8g2.printf
 Timer displayTimer;
 void redraw(bool force = false)
 {
@@ -260,7 +259,10 @@ void redraw(bool force = false)
   u8g2.setCursor(0, y += 8);
   for (size_t i = 0; i < 128/5; i++) PT('-');
   u8g2.setCursor(0, y += 8);
-  PTF("Flames sent: %d/%d", delayIndex+1, nDelays+1);
+  PT("Flames sent: ");
+  PT(delayIndex+1);
+  PT('/');
+  PT(nDelays+1);
   if (nDelays)
   {
     u8g2.setCursor(0, y += 8);
