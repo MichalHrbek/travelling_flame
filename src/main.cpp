@@ -45,6 +45,10 @@ int nDelays = 0;
 
 #define HEATER_PIN 3
 
+#define MIN_AUTO_DELAY_MS 15000
+#define AUTO_TEMP_RANGE 1.0
+uint8_t nAutoFlames = 0;
+
 class Timer {
   public:
     unsigned long startMicros;
@@ -231,6 +235,14 @@ bool readInts(long* value) // Reads an int and checks if the following character
   }
 }
 
+void sendSingleFlame()
+{
+  nDelays = 0;
+  lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
+  turnLighterOn();
+  begin();
+}
+
 #ifdef CONFIG_ESP_DISPLAY
 #define PT u8g2.print
 Timer displayTimer;
@@ -281,7 +293,7 @@ void redraw(bool force = false)
   u8g2.sendBuffer();
 }
 
-void processInput()
+void processDisplayInput()
 {
   if (state != WAITING_FOR_INPUT) return;
   if (digitalRead(PIN_K1) & digitalRead(PIN_K2) & digitalRead(PIN_K3) & digitalRead(PIN_K4)) return;
@@ -289,10 +301,7 @@ void processInput()
   uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nHeater toggle\nThermostat toggle\nThermostat set temp");
   if (sel == 1)
   {
-    nDelays = 0;
-    lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
-    turnLighterOn();
-    begin();
+    sendSingleFlame();
   }
   else if (sel == 2)
   {
@@ -342,11 +351,8 @@ void processInput()
 }
 #endif
 
-void onWaitingForInput() // Checking for serial input
+void processSerialInput()
 {
-  #ifdef CONFIG_ESP_DISPLAY
-  processInput();
-  #endif
   if (Serial.available() > 0)
   {
     int b = Serial.read();
@@ -374,10 +380,7 @@ void onWaitingForInput() // Checking for serial input
     // Starting the lighter
     if ((char)b == 'f')
     {
-      nDelays = 0;
-      lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
-      turnLighterOn();
-      begin();
+      sendSingleFlame();
     }
 
     if ((char)b == 'g')
@@ -397,6 +400,14 @@ void onWaitingForInput() // Checking for serial input
       while (Serial.read() != '\n');
       Serial.print(thermostatOn ? "O thermostat (ON) set to " : "O thermostat (OFF) set to ");
       Serial.println(goalTemp);
+    }
+
+    if ((char)b == 'a')
+    {
+      nAutoFlames = readInt();
+      while (Serial.read() != '\n');
+      Serial.print("O Number of automatically sent flames set to: ");
+      Serial.print(nAutoFlames);
     }
 
     if ((char)b == 'd')
@@ -439,7 +450,24 @@ void loop() {
 
   if (state == WAITING_FOR_INPUT)
   {
-    onWaitingForInput();
+    #ifdef CONFIG_ESP_DISPLAY
+    processDisplayInput();
+    #endif
+    processSerialInput();
+
+    if (nAutoFlames)
+    {
+      if (lighterTimer.elapsedMillis() > MIN_AUTO_DELAY_MS)
+      {
+        if (goalTemp-AUTO_TEMP_RANGE < avgTemp && avgTemp < goalTemp+AUTO_TEMP_RANGE)
+        {
+          nAutoFlames--;
+          sendSingleFlame();
+          Serial.print("O Number of automatically sent flames set to: ");
+          Serial.print(nAutoFlames);
+        }
+      }
+    }
   }
 
   // ---- Reading flame sensor ----
