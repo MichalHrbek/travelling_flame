@@ -271,10 +271,18 @@ void redraw(bool force = false)
   u8g2.setCursor(0, y += 8);
   for (size_t i = 0; i < 128/5; i++) PT('-');
   u8g2.setCursor(0, y += 8);
-  PT("Flames sent: ");
-  PT(delayIndex+1);
-  PT('/');
-  PT(nDelays+1);
+  if (nAutoFlames)
+  {
+    PT("Auto flames left: ");
+    PT(nAutoFlames);
+  }
+  else
+  {
+    PT("Flames sent: ");
+    PT(delayIndex+1);
+    PT('/');
+    PT(nDelays+1);
+  }
   if (nDelays)
   {
     u8g2.setCursor(0, y += 8);
@@ -298,7 +306,7 @@ void processDisplayInput()
   if (state != WAITING_FOR_INPUT) return;
   if (digitalRead(PIN_K1) & digitalRead(PIN_K2) & digitalRead(PIN_K3) & digitalRead(PIN_K4)) return;
   delay(200); // Rebound
-  uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nHeater toggle\nThermostat toggle\nThermostat set temp");
+  uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nHeater toggle\nThermostat toggle\nThermostat set temp\nSet temp trigger");
   if (sel == 1)
   {
     sendSingleFlame();
@@ -340,13 +348,17 @@ void processDisplayInput()
   {
     thermostatOn = !thermostatOn;
   }
-  else if (sel = 5)
+  else if (sel == 5)
   {
     uint8_t tempVal = 0;
     if (u8g2.userInterfaceInputValue("Target thermostat temperature", "T = ", &tempVal, 0, 255, 3, " C"))
     {
       goalTemp = tempVal;
     }
+  }
+  else if (sel == 6)
+  {
+    u8g2.userInterfaceInputValue("Number of temp\ntriggered flames\n", "N = ", &nAutoFlames, 0, 255, 3, "");
   }
 }
 #endif
@@ -406,8 +418,8 @@ void processSerialInput()
     {
       nAutoFlames = readInt();
       while (Serial.read() != '\n');
-      Serial.print("O Number of automatically sent flames set to: ");
-      Serial.print(nAutoFlames);
+      Serial.print("O nAutoFlames: ");
+      Serial.println(nAutoFlames);
     }
 
     if ((char)b == 'd')
@@ -463,8 +475,10 @@ void loop() {
         {
           nAutoFlames--;
           sendSingleFlame();
-          Serial.print("O Number of automatically sent flames set to: ");
+          Serial.print("O nAutoFlames: ");
           Serial.print(nAutoFlames);
+          Serial.print(", avgTemp: ");
+          Serial.println(avgTemp);
         }
       }
     }
