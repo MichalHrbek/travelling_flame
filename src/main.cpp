@@ -5,12 +5,14 @@
   #define FLAME_SENSOR_PIN 7
   #define N_THERMISTORS 4
   #define THERMISTOR_PINS {A3,A1,A2,A0}
-#endif
-#ifdef CONFIG_ESP_TEST
+  #define NORM_VOLTAGE 5.0
+  #endif
+  #ifdef CONFIG_ESP_TEST
   #define LIGHTER_PIN LED_BUILTIN
   #define FLAME_SENSOR_PIN 0 // Boot button
   #define N_THERMISTORS 4
   #define THERMISTOR_PINS {1,1,1,1}
+  #define NORM_VOLTAGE 3.3
 #endif
 
 #ifdef CONFIG_ESP_DISPLAY
@@ -111,8 +113,8 @@ double resistanceToCelsius(double r)
 double readCelsiusTemp(int pin)
 {
   int thermistor_adc_val = analogRead(pin);
-  double output_voltage = ( (thermistor_adc_val * 5.0) / 1023.0 ); // Toto predpoklada ADC rozliseni 1024, coz je na Ardiuno UNO myslim vzdycky
-  double thermistor_resistance = (9100.0*output_voltage/(5-output_voltage));
+  double output_voltage = ( (thermistor_adc_val * NORM_VOLTAGE) / 1023.0 ); // Toto predpoklada ADC rozliseni 1024, coz je na Ardiuno UNO myslim vzdycky
+  double thermistor_resistance = (9100.0*output_voltage/(NORM_VOLTAGE-output_voltage));
   return resistanceToCelsius(thermistor_resistance);
 }
 
