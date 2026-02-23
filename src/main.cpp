@@ -27,7 +27,7 @@
   #define PIN_BTN_DOWN PIN_K2
   #define PIN_BTN_HOME PIN_K3
   #define PIN_BTN_SELECT PIN_K4
-  #define UPDATE_FREQ_MS 100
+  #define UPDATE_FREQ_MS 250
 #endif
 
 #define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
@@ -239,7 +239,6 @@ void sendSingleFlame()
 {
   nDelays = 0;
   lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
-  turnLighterOn();
   begin();
 }
 
@@ -452,7 +451,7 @@ void processSerialInput()
 
 void loop() {
   #ifdef CONFIG_ESP_DISPLAY
-  redraw();
+  if (state != LIGHTER_ON) redraw();
   #endif
   updateTemps();
   if (thermostatOn) keepTemp();
