@@ -49,7 +49,7 @@ def main(port: str):
             if ser.in_waiting:
                 print(ser.read().strip().decode())
 
-            if (not command.startswith('d')):
+            if ((not command.startswith('d')) and (not command.startswith('l'))):
                 ser.write(command.encode())
                 while True:
                     if ser.in_waiting == 0:
@@ -63,15 +63,14 @@ def main(port: str):
                 continue
             
 
-            ser.write(command.encode() + b'\n')
-            
-            command_args = list(map(int, command.split()[1:]))
-            delays = command_args[:]
+            if (command.startswith('d')):
+                n_runs = command.count(' ') + 1
+                ser.write(command.encode() + b'\n')
+            else:
+                n_runs = 0
 
-            n_runs = command.count(' ') + 1
             run_index = 0
             flame_index = 0
-
             runs: list[FlameRun] = []
 
             while True:
@@ -98,9 +97,10 @@ def main(port: str):
                         if int(args[1]) == 0: # TODO: idk
                             runs[flame_index].flame_arrive_time = int(args[2])
                             flame_index += 1
-                if flame_index == n_runs and run_index == n_runs:
-                    print("All data recorded")
-                    break
+                if n_runs:
+                    if flame_index == n_runs and run_index == n_runs:
+                        print("All data recorded")
+                        break
 
             print("Exporting")
             if len(runs):
