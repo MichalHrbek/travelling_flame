@@ -6,8 +6,8 @@
   #define N_THERMISTORS 4
   #define THERMISTOR_PINS {A3,A1,A2,A0}
   #define NORM_VOLTAGE 5.0
-  #endif
-  #ifdef CONFIG_ESP_TEST
+#endif
+#ifdef CONFIG_ESP_TEST
   #define LIGHTER_PIN LED_BUILTIN
   #define FLAME_SENSOR_PIN 0 // Boot button
   #define N_THERMISTORS 4
@@ -183,7 +183,7 @@ void turnLighterOn()
 void turnLighterOff()
 {
   if (state == LIGHTER_OFF) return;
-  digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LIGHTER_PIN, LOW);
   state = LIGHTER_OFF;
   
   Serial.print("E ");
