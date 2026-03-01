@@ -45,12 +45,20 @@ def main(port: str):
     while not ser.closed:
         try:
             # "Command ('25' = lighter active for 25ms, '10 200' = lighter activated for 10ms twice with a 200ms gap): \n"
-            command = input("Command: ").strip()
+            command = input("Command: ")
+            if not command:
+                command = 't'
+
             if ser.in_waiting:
                 print(ser.read().strip().decode())
 
-            if ((not command.startswith('d')) and (not command.startswith('l'))):
+            if command[0] in 'ds':
+                command += "\n"
+            if command[0] != 'l':
+                print("writing", command.encode())
                 ser.write(command.encode())
+            
+            if (command[0] not in 'dlf'):
                 while True:
                     if ser.in_waiting == 0:
                         if stdin_available():
@@ -62,10 +70,8 @@ def main(port: str):
 
                 continue
             
-
             if (command.startswith('d')):
                 n_runs = command.count(' ') + 1
-                ser.write(command.encode() + b'\n')
             else:
                 n_runs = 0
 
@@ -82,6 +88,7 @@ def main(port: str):
                     continue
                 line = ser.readline().strip().decode()
                 print(line)
+                line = line.removesuffix(" H")
 
                 if not line: continue
                 args = line.split()
