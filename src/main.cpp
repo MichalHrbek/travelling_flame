@@ -375,29 +375,26 @@ void processSerialInput()
     printTime();
     Serial.println();
 
-    if ((char)b == 't')
+    switch ((char)b)
     {
+    case 't':
       printThermistors(&Serial);
-    }
-
-    if ((char)b == 'h')
-    {
+      break;
+    
+    case 'h':
       heaterOn = !heaterOn;
       if (heaterOn) digitalWrite(HEATER_PIN, HIGH);
       else digitalWrite(HEATER_PIN, LOW);
       Serial.print("O Heater ");
       if (heaterOn) Serial.println("ON");
       else Serial.println("OFF");
-    }
-
-    // Starting the lighter
-    if ((char)b == 'f')
-    {
+      break;
+    
+    case 'f':
       sendSingleFlame();
-    }
-
-    if ((char)b == 'g')
-    {
+      break;
+    
+    case 'g':
       thermostatOn = !thermostatOn;
       if (thermostatOn) Serial.println("O thermostat ON");
       else 
@@ -405,26 +402,23 @@ void processSerialInput()
         Serial.println("O thermostat OFF");
         heaterOn = false;
       }
-    }
+      break;
 
-    if ((char)b == 's')
-    {
+    case 's':
       goalTemp = readInt();
       while (Serial.read() != '\n');
       Serial.print(thermostatOn ? "O thermostat (ON) set to " : "O thermostat (OFF) set to ");
       Serial.println(goalTemp);
-    }
-
-    if ((char)b == 'a')
-    {
+      break;
+    
+    case 'a':
       nAutoFlames = readInt();
       while (Serial.read() != '\n');
       Serial.print("O nAutoFlames: ");
       Serial.println(nAutoFlames);
-    }
-
-    if ((char)b == 'd')
-    {
+      break;
+    
+    case 'd':
       String s = "";
       nDelays = 0;
       
@@ -447,6 +441,7 @@ void processSerialInput()
       }
 
       begin();
+      break;
     }
   }
 }
