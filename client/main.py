@@ -70,8 +70,13 @@ def main(port: str):
 
                 continue
             
-            if (command.startswith('d')):
-                n_runs = command.count(' ') + 1
+            if command.startswith('d'):
+                if command.startswith('d '):
+                    n_runs = command.count(' ')
+                else:
+                    n_runs = command.count(' ') + 1
+            elif command.startswith('f') and not command.startswith('f1'):
+                n_runs = 1
             else:
                 n_runs = 0
 
@@ -104,9 +109,13 @@ def main(port: str):
                         runs[run_index].lighter_duration = int(args[1])
                         run_index += 1
                     case 'F':
-                        if int(args[1]) == 0: # TODO: idk
+                        if int(args[1]) == 0:
                             runs[flame_index].flame_arrive_time = int(args[2])
                             flame_index += 1
+                            if n_runs == 2 and flame_index == 2:
+                                t1 = runs[0].flame_arrive_time-runs[0].lighter_start_time
+                                t2 = runs[1].flame_arrive_time-runs[1].lighter_start_time
+                                print(f"O t1={t1}ms, t2={t2}ms, (t2-t1)={t2-t1}ms")
                 if n_runs:
                     if flame_index == n_runs and run_index == n_runs:
                         print("All data recorded")
