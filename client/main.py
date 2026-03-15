@@ -22,10 +22,10 @@ class FlameRun:
         return f"lighter_start_time, lighter_duration, flame_arrive_time, {', '.join([f'start_temp_{i}' for i in range(n_temps)])}"
 
 
-def gen_filename() -> str:
+def gen_filename(prefix: str = "") -> str:
     dirname = os.path.join(os.path.dirname(__file__), "out/")
     os.makedirs(dirname, exist_ok=True)
-    full_path = dirname + datetime.now().strftime("%Y%m%d-%H%M%S") + ".csv"
+    full_path = dirname + prefix + datetime.now().strftime("%Y%m%d-%H%M%S") + ".csv"
     assert not os.path.exists(full_path)
     return full_path
 
@@ -78,6 +78,7 @@ def main(port: str):
             run_index = 0
             flame_index = 0
             runs: list[FlameRun] = []
+            aux_temps: list[tuple] = []
 
             while True:
                 if ser.in_waiting == 0:
@@ -97,6 +98,8 @@ def main(port: str):
                         runs.append(FlameRun(int(args[1])))
                     case 'T':
                         runs[run_index].start_temps = [float(i) for i in args[1:]]
+                    case 'I':
+                        aux_temps.append([int(args[1])] + [float(i) for i in args[2:]])
                     case 'E':
                         runs[run_index].lighter_duration = int(args[1])
                         run_index += 1
@@ -119,6 +122,17 @@ def main(port: str):
                         f.write('\n')
             else:
                 print("Error: recieved no data")
+            
+            if aux_temps:
+                print("Ending temp test")
+                ser.write(b"\n")
+                print("Exporting temp test")
+                with open(gen_filename("temps-"), 'w') as f:
+                    f.write(', '.join(f"temp{i}" for i in range(len(aux_temps[0])-1)))
+                    f.write('\n')
+                    for i in aux_temps:
+                        f.write(', '.join(str(j) for j in i))
+                        f.write('\n')
 
             
         except Exception:

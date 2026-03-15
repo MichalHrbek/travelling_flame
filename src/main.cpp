@@ -144,7 +144,9 @@ unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
 bool heaterOn = false;
 
 bool thermostatOn = false;
-double goalTemp = 40.0; 
+double goalTemp = 40.0;
+
+bool tempTesting = false;
 
 void printThermistors(Print* s)
 {
@@ -158,6 +160,18 @@ void printThermistors(Print* s)
   s->println();
 }
 
+void printThermistorsInstant(Print* s)
+{
+  s->print("I ");
+  s->print(millis());
+  s->print(" ");
+  for (size_t i = 0; i < N_THERMISTORS; i++)
+  {
+    s->print(temperatureValues[i]);
+    s->print(" ");
+  }
+  s->println();
+}
 
 enum State { 
   WAITING_FOR_INPUT, // The lighting sequence finnished, but still might be waiting for the last flame to arrive
@@ -368,6 +382,8 @@ void processSerialInput()
 {
   if (Serial.available() > 0)
   {
+    tempTesting = false;
+
     int b = Serial.read();
     Serial.print("O Recieved: ");
     if (b != '\n' && b != '\r') Serial.print((char)b);
@@ -419,6 +435,7 @@ void processSerialInput()
       break;
     
     case 'd':
+    {
       String s = "";
       nDelays = 0;
       
@@ -443,6 +460,11 @@ void processSerialInput()
       begin();
       break;
     }
+    
+    case '1':
+      tempTesting = true;
+      break;
+    }
   }
 }
 
@@ -451,6 +473,7 @@ void loop() {
   if (state != LIGHTER_ON) redraw();
   #endif
   updateTemps();
+  if (tempTesting) printThermistorsInstant(&Serial);
   if (thermostatOn) keepTemp();
   if (heaterOn) digitalWrite(HEATER_PIN, HIGH);
   else digitalWrite(HEATER_PIN, LOW);
