@@ -32,7 +32,7 @@
   #define UPDATE_FREQ_MS 250
 #endif
 
-#define FLAME_SENSOR_ERROR_TIMER 1.5 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
+#define FLAME_SENSOR_ERROR_TIMER 2 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
 #define DEFAULT_LIGHTER_MILIS 10 // Used when 'f' is pressed
 
