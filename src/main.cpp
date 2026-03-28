@@ -34,7 +34,7 @@
 
 #define FLAME_SENSOR_ERROR_TIMER 2 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
-#define DEFAULT_LIGHTER_MILIS 10 // Used when 'f' is pressed
+#define DEFAULT_LIGHTER_MILIS 200 // Used when 'f' is pressed
 
 #define N_RELEVANT_THERMISTORS (N_THERMISTORS-1) // The first N thermistors are relevant, the last is ambient temp
 const int thermistorPins[N_THERMISTORS] = THERMISTOR_PINS;
@@ -146,7 +146,8 @@ bool heaterOn = false;
 bool thermostatOn = false;
 double goalTemp = 40.0;
 
-bool tempTesting = false;
+int tempTesting = 0;
+Timer tempTestingTimer;
 
 void printThermistors(Print* s)
 {
@@ -382,7 +383,7 @@ void processSerialInput()
 {
   if (Serial.available() > 0)
   {
-    tempTesting = false;
+    tempTesting = 0;
 
     int b = Serial.read();
     Serial.print("O Recieved: ");
@@ -462,7 +463,8 @@ void processSerialInput()
     }
     
     case '1':
-      tempTesting = true;
+      tempTesting = 1;
+      tempTestingTimer.start();
       break;
     }
   }
@@ -473,7 +475,15 @@ void loop() {
   if (state != LIGHTER_ON) redraw();
   #endif
   updateTemps();
-  if (tempTesting) printThermistorsInstant(&Serial);
+  if (tempTesting)
+  {
+    printThermistorsInstant(&Serial);
+    if (tempTesting == 1 && tempTestingTimer.elapsedMillis() > 3000)
+    {
+      tempTesting = 2;
+      sendSingleFlame();
+    }
+  }
   if (thermostatOn) keepTemp();
   if (heaterOn) digitalWrite(HEATER_PIN, HIGH);
   else digitalWrite(HEATER_PIN, LOW);
