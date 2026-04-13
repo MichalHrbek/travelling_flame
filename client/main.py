@@ -58,7 +58,7 @@ def main(port: str):
                 print("writing", command.encode())
                 ser.write(command.encode())
             
-            if (command[0] not in 'dlf'):
+            if (command[0] not in 'dlf1'):
                 while True:
                     if ser.in_waiting == 0:
                         if stdin_available():
@@ -140,7 +140,7 @@ def main(port: str):
                 ser.write(b"\n")
                 print("Exporting temp test")
                 with open(gen_filename("temps-"), 'w') as f:
-                    f.write(', '.join(f"temp{i}" for i in range(len(aux_temps[0])-1)))
+                    f.write("timestamp_ms, " + ', '.join(f"temp{i}" for i in range(len(aux_temps[0])-1)))
                     f.write('\n')
                     for i in aux_temps:
                         f.write(', '.join(str(j) for j in i))
