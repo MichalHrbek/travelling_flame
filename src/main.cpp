@@ -1,36 +1,11 @@
 #include <Arduino.h>
 
-#ifdef CONFIG_UNO
-  #define LIGHTER_PIN 6
-  #define FLAME_SENSOR_PIN 7
-  #define N_THERMISTORS 4
-  #define THERMISTOR_PINS {A3,A1,A2,A0}
-  #define NORM_VOLTAGE 5.0
-#endif
-#ifdef CONFIG_ESP_TEST
-  #define LIGHTER_PIN LED_BUILTIN
-  #define FLAME_SENSOR_PIN 0 // Boot button
-  #define N_THERMISTORS 4
-  #define THERMISTOR_PINS {1,1,1,1}
-  #define NORM_VOLTAGE 3.3
-#endif
-
-#ifdef CONFIG_ESP_DISPLAY
-  #include <Wire.h>
-  #include <U8g2lib.h>
-  U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
-  #define SDA_PIN 39
-  #define SCL_PIN 37
-  #define PIN_K1 9
-  #define PIN_K2 7
-  #define PIN_K3 5
-  #define PIN_K4 3
-  #define PIN_BTN_UP PIN_K1
-  #define PIN_BTN_DOWN PIN_K2
-  #define PIN_BTN_HOME PIN_K3
-  #define PIN_BTN_SELECT PIN_K4
-  #define UPDATE_FREQ_MS 250
-#endif
+#define LIGHTER_PIN 6
+#define FLAME_SENSOR_PIN 7
+#define N_THERMISTORS 4
+#define THERMISTOR_PINS {A3,A1,A2,A0}
+#define NORM_VOLTAGE 5.0
+#define HEATER_PIN 3
 
 #define FLAME_SENSOR_ERROR_TIMER 2 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
@@ -44,8 +19,6 @@ double avgTemp;
 #define MAX_N_DELAYS 24 // Arduino UNO ma jenom 2kb RAM, takze to moc nezvedejte
 long delaysMs[MAX_N_DELAYS] = {}; // ms
 int nDelays = 0;
-
-#define HEATER_PIN 3
 
 #define MIN_AUTO_DELAY_MS 15000
 #define AUTO_TEMP_RANGE 1.0
@@ -82,16 +55,6 @@ void setup() {
   pinMode(HEATER_PIN, OUTPUT);
   Serial.begin(9600);
   Serial.setTimeout(0xffffff);
-  #ifdef CONFIG_ESP_DISPLAY
-  Wire.begin(SDA_PIN, SCL_PIN);
-  pinMode(PIN_K1, INPUT);
-  pinMode(PIN_K2, INPUT);
-  pinMode(PIN_K3, INPUT);
-  pinMode(PIN_K4, INPUT);
-  u8g2.begin(PIN_BTN_SELECT,PIN_BTN_DOWN,PIN_BTN_UP,U8X8_PIN_NONE,U8X8_PIN_NONE,PIN_BTN_HOME);
-  u8g2.clearBuffer();
-  u8g2.setFont(u8g2_font_spleen5x8_mf);
-  #endif
 }
 
 double resistanceToCelsius(double r)
@@ -259,126 +222,6 @@ void sendSingleFlame()
   begin();
 }
 
-#ifdef CONFIG_ESP_DISPLAY
-#define PT u8g2.print
-Timer displayTimer;
-void redraw(bool force = false)
-{
-  if (!(force || (displayTimer.elapsedMillis() > UPDATE_FREQ_MS))) return;
-  uint8_t y = 0;
-  displayTimer.start();
-  u8g2.clearBuffer();
-  u8g2.setCursor(0, y += 8);
-  PT("State: ");
-  PT(state == WAITING_FOR_INPUT ? "waiting for user" : "working");
-  u8g2.setCursor(0, y += 8);
-  PT("Time: ");
-  PT(millis());
-  u8g2.setCursor(0, y += 8);
-  PT("H: ");
-  if (thermostatOn) PT("Tstat->");
-  PT(heaterOn ? "ON" : "OFF");
-  PT(", ");
-  PT(avgTemp);
-  PT("/");
-  PT(goalTemp);
-  u8g2.setCursor(0, y += 8);
-  printThermistors(&u8g2);
-  u8g2.setCursor(0, y += 8);
-  for (size_t i = 0; i < 128/5; i++) PT('-');
-  u8g2.setCursor(0, y += 8);
-  if (nAutoFlames)
-  {
-    PT("Auto flames left: ");
-    PT(nAutoFlames);
-  }
-  else
-  {
-    PT("Flames sent: ");
-    PT(delayIndex+1);
-    PT('/');
-    PT(nDelays+1);
-  }
-  if (nDelays)
-  {
-    u8g2.setCursor(0, y += 8);
-    PT("Delays: ");
-    for (size_t i = 0; i < nDelays; i++)
-    {
-      PT(delaysMs[i]);
-      PT(' ');
-    }
-  }
-  if (!sensorVal)
-  {
-    u8g2.setCursor(0, y += 8);
-    PT("Flame detected`");
-  }
-  u8g2.sendBuffer();
-}
-
-void processDisplayInput()
-{
-  if (state != WAITING_FOR_INPUT) return;
-  if (digitalRead(PIN_K1) & digitalRead(PIN_K2) & digitalRead(PIN_K3) & digitalRead(PIN_K4)) return;
-  delay(200); // Rebound
-  uint8_t sel = u8g2.userInterfaceSelectionList("Menu", 1, "Send flame\nCustom\nHeater toggle\nThermostat toggle\nThermostat set temp\nSet temp trigger");
-  if (sel == 1)
-  {
-    sendSingleFlame();
-  }
-  else if (sel == 2)
-  {
-    uint8_t nFlames = 1;
-    if (u8g2.userInterfaceInputValue("Number of flames", "N = ", &nFlames, 1, MAX_N_DELAYS, 2, ""))
-    {
-      nDelays = nFlames-1;
-      if (nDelays)
-      {
-        uint8_t delayTime = 0;
-        if (u8g2.userInterfaceInputValue("Delay between flames", "T = ", &delayTime, 1, 255, 3, "00 ms"))
-        {
-          long delayMs = delayTime*100L;
-          for (size_t i = 0; i < nDelays; i++)
-          {
-            delaysMs[i] = delayMs;
-          }
-          begin();
-        }
-      }
-      else begin();
-    }
-  }
-  else if (sel == 3)
-  {
-    if (thermostatOn)
-    {
-      u8g2.userInterfaceMessage("The heater is\nbeing controlled\nby the thermostat!", "", "", " OK ");
-    }
-    else
-    {
-      heaterOn = !heaterOn;
-    }
-  }
-  else if (sel == 4)
-  {
-    thermostatOn = !thermostatOn;
-  }
-  else if (sel == 5)
-  {
-    uint8_t tempVal = 0;
-    if (u8g2.userInterfaceInputValue("Target thermostat temperature", "T = ", &tempVal, 0, 255, 3, " C"))
-    {
-      goalTemp = tempVal;
-    }
-  }
-  else if (sel == 6)
-  {
-    u8g2.userInterfaceInputValue("Number of temp\ntriggered flames\n", "N = ", &nAutoFlames, 0, 255, 3, "");
-  }
-}
-#endif
-
 void processSerialInput()
 {
   if (Serial.available() > 0)
@@ -471,9 +314,6 @@ void processSerialInput()
 }
 
 void loop() {
-  #ifdef CONFIG_ESP_DISPLAY
-  if (state != LIGHTER_ON) redraw();
-  #endif
   updateTemps();
   if (tempTesting)
   {
@@ -491,9 +331,6 @@ void loop() {
 
   if (state == WAITING_FOR_INPUT)
   {
-    #ifdef CONFIG_ESP_DISPLAY
-    processDisplayInput();
-    #endif
     processSerialInput();
 
     if (nAutoFlames)
