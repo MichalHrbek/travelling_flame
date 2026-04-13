@@ -1,3 +1,5 @@
+# Vizualizuje data získaná z temp testu (příkaz `1`)
+
 import sys, os
 import pandas as pd
 import matplotlib.pyplot as plt

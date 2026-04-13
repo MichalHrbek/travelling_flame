@@ -1,3 +1,5 @@
+# Spojí více csv záznamů do jednoho
+
 from glob import glob
 import os
 import sys
