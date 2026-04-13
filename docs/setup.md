@@ -49,3 +49,4 @@ plus zdroje => diody => source tranzistoru (žlutý kabel) => drain tranzistoru 
 - hnědý drátek => pin `3` arduina (HEATER_PIN)
 
 # Nákresy zapojení
+![Zapojení jiskřiče](img/jiskric_zapojeni.jpg)
