@@ -34,7 +34,7 @@
 
 #define FLAME_SENSOR_ERROR_TIMER 2 // Multiple of the lighter on time, specifying the period (from the moment the lighter starts) when data from the flame sensor will be ignored 
 
-#define DEFAULT_LIGHTER_MILIS 200 // Used when 'f' is pressed
+#define DEFAULT_LIGHTER_MILIS 200UL // Used when 'f' is pressed
 
 #define N_RELEVANT_THERMISTORS (N_THERMISTORS-1) // The first N thermistors are relevant, the last is ambient temp
 const int thermistorPins[N_THERMISTORS] = THERMISTOR_PINS;
@@ -140,7 +140,7 @@ void printTime()
 Timer lighterTimer;
 bool sensorVal = true;
 int delayIndex = 0;
-unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000;
+unsigned long lighterMicros = DEFAULT_LIGHTER_MILIS*1000UL;
 bool heaterOn = false;
 
 bool thermostatOn = false;
