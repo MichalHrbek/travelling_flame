@@ -14,10 +14,11 @@
 # Senzor plamene
 - informuje o změně teploty (jde otestovat déchnutím teplého vzduchu)
 - dva drátky z senzoru zapojte do děr na destičce, nezáleží na polaritě
-- napájení batrkou cca 6v (4 x 1.5V)
+- napájení baterkou cca 6v (4 x 1.5V)
 - zelený kabel -> `GND` arduina
 - žlutý kabel (senzor HIGH/LOW) -> pin `7` arduina (`FLAME_SENSOR_PIN`)
 - oranžový kabel (sepnutí jiskřiče HIGH/LOW) -> pin `6` arduina  (`LIGHTER_PIN`)
+![nákres zapojení](img/senzor_zapojeni.jpg)
 ![zapojení do arduina](img/senzor_jiskric_arduino.jpg)
 
 
@@ -25,15 +26,15 @@
 
 | Barva u termistoru | Pozice       | Pin Arduina | Barva u Arduina |
 |--------------------|--------------|-------------|-----------------|
-| Zelená             | u senzoru    | A2          | Oranžová        |
-| Modrá              | u zapalovače | A3          | Žlutá           |
-| Oranžová           | uprostřed    | A1          | Hnědá           |
-| Hnědá              | místnost     | A0          | Černá           |
+| Zelená             | u senzoru    | `A2`          | Oranžová        |
+| Modrá              | u zapalovače | `A3`          | Žlutá           |
+| Oranžová           | uprostřed    | `A1`          | Hnědá           |
+| Hnědá              | místnost     | `A0`          | Černá           |
 
-- zelenená -> `GND` arduina
+- zelená -> `GND` arduina
 - červená -> `5V` arduina
 - piny v `THERMISTOR_PINS`
-- [datasheet](https://img.gme.cz/files/eshop_data/eshop_data/2/118-042/dsh.118-042.1.pdf) ze kterýho jsem dostal data pro přepočítání odporu na teplotu
+- [datasheet](https://img.gme.cz/files/eshop_data/eshop_data/2/118-042/dsh.118-042.1.pdf) ze kterého jsem dostal data pro přepočítání odporu na teplotu
 - při vypisování arduinem jsou v pořadí: `zapalovač, střed, senzor, místnost`
 
 # Diody
