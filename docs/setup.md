@@ -9,6 +9,8 @@
 - bílá -> černý banánek
 - červená -> červený banánek  
 ![jiskric bananky](img/jiskric_bananky.jpg)
+![Zapojení jiskřiče](img/jiskric_zapojeni_2.jpg)
+![Zapojení jiskřiče](img/jiskric_zapojeni.jpg)
 
 
 # Senzor plamene
@@ -48,6 +50,3 @@ plus zdroje => diody => source tranzistoru (žlutý kabel) => drain tranzistoru 
 ## Arduino
 - zelený drátek => `GND` arduina
 - hnědý drátek => pin `3` arduina (HEATER_PIN)
-
-# Nákresy zapojení
-![Zapojení jiskřiče](img/jiskric_zapojeni.jpg)
